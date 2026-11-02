@@ -48,6 +48,10 @@ GPU_TYPES = [
     GPUType("GPU_D (T4)", "D", 8.1e12, 16e9, 320e9),
 ]
 
+# e-RAMPA energy parameters (W).  V100 PCIe = 250 W (= TDP_MAX => factor 1 at lam=1).
+TDP_W: dict[str, float] = {"A": 72.0, "B": 250.0, "C": 165.0, "D": 70.0}
+TDP_MAX: float = 250.0
+
 PROP_GPU_SW = 0.05e-6
 PROP_SW_SW = 0.1e-6
 SWITCH_DELAY = 30e-9
@@ -472,6 +476,9 @@ class Cluster:
                     )
         self.rack_flops = np.array([GPU_TYPES[t].flops for t in self.types])
         self.rack_mem = np.array([GPU_TYPES[t].mem for t in self.types])
+        self.rack_tdp = np.array([TDP_W[GPU_TYPES[t].short] for t in self.types])
+        self.lam: float = 0.0
+        self.penalize_links: bool = False
         self.reset()
 
     def reset(self):
@@ -500,25 +507,31 @@ class Cluster:
     # ---- cost model: Eq.(4), Eq.(5) ----------------------------------------------------------
     def costs(self):
         free_counts = np.array(self.free, dtype=float)
-        gpu_cost = (
+        gpu_cost0 = (
             (self.rack_flops / 1e12)
             * (self.rack_mem / 1e9)
             * free_counts
         )
+        # e-RAMPA penalty: multiply Cg by (1 + lam * TDP / TDP_MAX).
+        # With lam=0 penal == 1.0 everywhere => gpu_cost_pen == gpu_cost0 (bit-identical).
+        penal = 1.0 + self.lam * self.rack_tdp / TDP_MAX
+        gpu_cost_pen = gpu_cost0 * penal
+        # Link/access cost: use penalised cost only when penalize_links=True.
+        gpu_for_links = gpu_cost_pen if self.penalize_links else gpu_cost0
         gpu_hops = self.dist + 2
         partner_counts = free_counts[None, :] - np.eye(self.R)
         access_cost = (
-            ((gpu_cost[:, None] + gpu_cost[None, :]) / gpu_hops)
+            ((gpu_for_links[:, None] + gpu_for_links[None, :]) / gpu_hops)
             * partner_counts
         ).sum(axis=1)
         pair_weights = (
             free_counts[self.pa]
             * free_counts[self.pb]
-            * (gpu_cost[self.pa] + gpu_cost[self.pb])
+            * (gpu_for_links[self.pa] + gpu_for_links[self.pb])
             / (self.dist[self.pa, self.pb] + 2)
         )
         link_cost = self.F @ pair_weights
-        return gpu_cost, access_cost, link_cost
+        return gpu_cost_pen, access_cost, link_cost
 
     def route_table(self, linkc=None):
         """All-pairs cheapest feasible routes: fewest hops first, then lowest link cost; skips full links."""
