@@ -4,10 +4,14 @@ Tabs: Overview (+cost explorer) | Live simulator | Paper-style results | Extensi
 """
 import os
 import numpy as np, pandas as pd, streamlit as st
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from core import *
 from sim import run_fill
 import viz
+import energy
+import energy_dash
 
 st.set_page_config(page_title="RAMPA Lab", page_icon="RAMPA", layout="wide")
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -37,11 +41,40 @@ def simulate(kind, mix, seed, pattern, n_ants, n_iter):
                       failed=SERVICES[r.failed_svc].name if r.failed_svc is not None else "-")
     return spec, out
 
+@st.cache_data(show_spinner=False)
+def simulate_energy(kind, mix, seed, lam, n_ants=20, n_iter=8, extra_stages=6):
+    spec = preset(kind)
+    prm = ACOParams(n_ants=n_ants, n_iter=n_iter, extra_stages=extra_stages)
+    r0 = run_fill(spec, mix, seed, "RAMPA", lam=0.0, params=prm, snapshots=False)
+    series0 = energy.alloc_series(r0.records, spec)
+    if lam == 0.0:
+        rlam = r0
+        series_lam = series0
+    else:
+        rlam = run_fill(spec, mix, seed, "RAMPA", lam=lam, params=prm, snapshots=False)
+        series_lam = energy.alloc_series(rlam.records, spec)
+    return {
+        "count_0": r0.count,
+        "count_lam": rlam.count,
+        "series_0": series0,
+        "series_lam": series_lam,
+        "failed_0": SERVICES[r0.failed_svc].name if r0.failed_svc is not None else "-",
+        "failed_lam": SERVICES[rlam.failed_svc].name if rlam.failed_svc is not None else "-",
+    }
+
+@st.cache_data(show_spinner=False)
+def load_energy_data():
+    runs_p = os.path.join(RES, "energy", "energy_runs.csv")
+    steps_p = os.path.join(RES, "energy", "energy_steps.csv")
+    if not os.path.exists(runs_p) or not os.path.exists(steps_p):
+        return None, None
+    return pd.read_csv(runs_p), pd.read_csv(steps_p)
+
 st.title("RAMPA Lab")
 st.caption("Resource-aware DL model partitioning & allocation on heterogeneous GPU clusters — "
            "re-implementation and extension of Ikoma, Ohsita & Murata, IEEE Trans. Cloud Computing 13(4), 2025.")
-tab_over, tab_live, tab_res, tab_ext, tab_about = st.tabs(
-    ["Overview", "Live simulator", "Paper-style results", "Extensions", "About & limitations"])
+tab_over, tab_live, tab_res, tab_ext, tab_energy, tab_about = st.tabs(
+    ["Overview", "Live simulator", "Paper-style results", "Extensions", "Energy (e-RAMPA)", "About & limitations"])
 
 # ------------------------------------------------------------------------------------------ Overview
 with tab_over:
@@ -161,6 +194,138 @@ with tab_ext:
         st.subheader("B. Continuous arrivals and departures")
         st.pyplot(viz.plot_dynamic(dyn), clear_figure=True)
         st.markdown("With services leaving over time, RAMPA keeps rejecting fewer requests at the same offered load and keeps GPUs busier.")
+
+# ------------------------------------------------------------------------------------------ Energy (e-RAMPA)
+with tab_energy:
+    st.subheader("e-RAMPA: Energy-Aware Partitioning and Allocation")
+    st.markdown(r"""
+**e-RAMPA** introduces an energy penalty to the GPU allocation cost $\mathcal{C}_g$ so that the ant-colony search
+prefers lower-power GPU types:
+$$\mathcal{C}_{g,\mathrm{pen}} = \mathcal{C}_g \times \left(1 + \lambda \cdot \frac{\mathrm{TDP}_g}{\mathrm{TDP}_{\max}}\right)$$
+where $\mathrm{TDP}_{\max} = 250\,\mathrm{W}$ (V100 PCIe). At $\lambda=0$, the cost function and returned allocations are bit-identical to baseline RAMPA.
+""")
+    tdp_df = pd.DataFrame([
+        {"GPU Type": g.name, "Short": g.short, "Nominal TDP (W)": TDP_W[g.short],
+         "Ratio (TDP/TDP_MAX)": round(TDP_W[g.short] / TDP_MAX, 3)}
+        for g in GPU_TYPES
+    ])
+    st.dataframe(tdp_df, hide_index=True)
+    st.caption("Note: TDP is a nominal thermal design power proxy reflecting maximum continuous power draw, not dynamic per-kernel instrumented power.")
+
+    # 1. Results Explorer
+    st.divider()
+    st.subheader("1. Results Explorer")
+    df_runs, df_steps = load_energy_data()
+    if df_runs is None or df_steps is None:
+        st.info("Energy experiment results missing. Run `python run_energy.py` to generate `results/energy/energy_runs.csv` and `energy_steps.csv`.")
+    else:
+        n_ref_a, n_ref_b = energy_dash.compute_reference_points(df_runs)
+        cluster_totals = energy_dash.compute_cluster_totals()
+        
+        lam_vals = sorted(list(df_runs[df_runs["method"] == "RAMPA"]["lam"].unique()))
+        def_idx = lam_vals.index(1.0) if 1.0 in lam_vals else 0
+        
+        envs_list = sorted(list(set(f"{c} / {m}" for c, m in zip(df_runs["cluster"], df_runs["mix"]))))
+        env_options = ["All pooled"] + envs_list
+        
+        c_lam, c_env = st.columns([1, 2])
+        sel_lam = c_lam.selectbox("Energy penalty parameter λ", lam_vals, index=def_idx, key="en_lam_sel")
+        sel_env = c_env.selectbox("Environment", env_options, index=0, key="en_env_sel")
+        
+        exp_data = energy_dash.get_explorer_data(df_runs, df_steps, n_ref_a, sel_env, sel_lam)
+        
+        st.caption(fr"Equal-load request index: **{exp_data['n_ref_str']}** (defined as $\lfloor 0.75 \times \min_{{\text{{RAMPA runs}}}} \text{{count}} \rfloor$).")
+        
+        m_col1, m_col2 = st.columns(2)
+        m_col1.metric("Allocated TDP at Equal Load (%Δ vs λ=0)", f"{exp_data['pct_tdp']:+.2f}%",
+                      help="Change in cumulative allocated TDP at N_ref_A")
+        m_col2.metric("Services Admitted (%Δ vs λ=0)", f"{exp_data['pct_cnt']:+.2f}%",
+                      help="Change in admission capacity before first rejection")
+        
+        col_gpus, col_diff = st.columns(2)
+        fig_gpus = energy_dash.plot_gpu_types_stacked(exp_data["type_0"], exp_data["type_lam"], sel_lam)
+        col_gpus.pyplot(fig_gpus, clear_figure=True)
+        fig_diff = energy_dash.plot_cum_tdp_diff(exp_data["diff_series"], sel_lam)
+        col_diff.pyplot(fig_diff, clear_figure=True)
+        
+        # 2. Method comparison at equal load
+        st.divider()
+        st.subheader("2. Method Comparison at Common Equal Load (N_ref_B)")
+        df_comp, n_ref_b_str = energy_dash.get_method_comparison_data(df_runs, df_steps, n_ref_b, sel_env)
+        st.dataframe(df_comp, hide_index=True, width="stretch")
+        st.caption(f"Evaluated at common load point {n_ref_b_str}. "
+                   "**Important**: PipeEdge (PE) appears power-efficient only because it admits far fewer services and leaves most GPUs idle.")
+
+        # 3. Idle-power view
+        st.divider()
+        st.subheader("3. Idle Power Sensitivity (Unallocated GPU Leakage)")
+        st.markdown(r"Total cluster power accounting for static leakage on idle GPUs: "
+                    r"$P_{\mathrm{total}} = P_{\mathrm{alloc}} + f \cdot \sum_{\text{free}} \mathrm{TDP}$.")
+        
+        f_c1, f_c2 = st.columns([1, 2])
+        f_radio = f_c1.radio("Standard idle fraction f", [0.0, 0.1, 0.3], index=1, horizontal=True, key="en_idle_f_radio")
+        f_val = f_c2.slider("Fine-grained idle leakage fraction f", 0.0, 0.5, float(f_radio), 0.05, key="en_idle_f_slider")
+        
+        df_idle = energy_dash.get_idle_efficiency_data(df_steps, cluster_totals, f_val, sel_env)
+        st.dataframe(df_idle, hide_index=True, width="stretch")
+        st.caption("Measured at the moment of first admission rejection. At $f=0.3$, PE collapses into negative efficiency due to unallocated cluster idle leakage.")
+        
+        curve_png = os.path.join(RES, "energy", "diag", "idle_curve_v2.png")
+        if os.path.exists(curve_png):
+            st.image(curve_png, caption="Two-panel sensitivity curves: (a) Full range comparing all methods, (b) Zoomed e-RAMPA variants with 95% CI bands across the 16 environments (uncorrected).")
+
+    # 4. Live demo
+    st.divider()
+    st.subheader("4. Live Interactive e-RAMPA Demo")
+    st.caption("Run RAMPA (λ=0) and e-RAMPA (chosen λ) on the exact same arrival stream.")
+    
+    d1, d2, d3, d4 = st.columns(4)
+    live_kind = d1.selectbox("Cluster", CLUSTER_KINDS, index=0, key="en_live_kind")
+    live_mix = d2.selectbox("Demand mix", list(MIXES), index=0, key="en_live_mix")
+    live_seed = d3.number_input("Random seed", 0, 99, 1, key="en_live_seed")
+    live_lam = d4.slider("Energy penalty λ", 0.0, 10.0, 1.0, 0.5, key="en_live_lam")
+    if live_kind == "Large":
+        st.warning("⚠️ Large cluster (216 GPUs) takes ~10–15s to simulate.")
+        
+    with st.spinner(f"Simulating RAMPA (λ=0) and e-RAMPA (λ={live_lam}) on the same seed..."):
+        live_res = simulate_energy(live_kind, live_mix, int(live_seed), float(live_lam))
+        
+    c_live1, c_live2 = st.columns(2)
+    s0_last = live_res["series_0"][-1] if live_res["series_0"] else {"alloc_tdp": 0}
+    slam_last = live_res["series_lam"][-1] if live_res["series_lam"] else {"alloc_tdp": 0}
+    
+    cnt0 = live_res["count_0"]
+    cnt_lam = live_res["count_lam"]
+    tdp0 = s0_last["alloc_tdp"]
+    tdp_lam = slam_last["alloc_tdp"]
+    
+    cnt_delta = f"{cnt_lam - cnt0:+d} vs λ=0" if live_lam > 0 else None
+    tdp_delta = f"{(tdp_lam - tdp0)/tdp0 * 100:+.1f}% vs λ=0" if tdp0 > 0 and live_lam > 0 else None
+    
+    c_live1.metric("RAMPA (λ=0) — Services Admitted", cnt0)
+    c_live1.caption(f"First rejected: {live_res['failed_0']} · Final Alloc TDP: {tdp0:,.0f} W")
+    
+    c_live2.metric(f"e-RAMPA (λ={live_lam}) — Services Admitted", cnt_lam, cnt_delta, delta_color="off")
+    c_live2.caption(f"First rejected: {live_res['failed_lam']} · Final Alloc TDP: {tdp_lam:,.0f} W ({tdp_delta or 'baseline'})")
+    
+    lp1, lp2 = st.columns(2)
+    if live_res["series_0"] and live_res["series_lam"]:
+        fig_l_tdp = energy_dash.plot_live_comparison(live_res["series_0"], live_res["series_lam"], live_lam)
+        lp1.pyplot(fig_l_tdp, clear_figure=True)
+        fig_l_gpu = energy_dash.plot_live_gpu_bar(s0_last, slam_last, live_lam)
+        lp2.pyplot(fig_l_gpu, clear_figure=True)
+        
+    # 5. Limitations
+    st.divider()
+    st.subheader("5. Limitations & Methodological Caveats")
+    st.info(r"""
+* **Nominal TDP Proxy**: TDP represents maximum continuous thermal design power, not measured dynamic power consumption. Dynamic idle power is modeled as a parameterized fraction $f$ of unallocated GPU TDP.
+* **Scaled-Down Topology**: Clusters are scaled down from the original paper (96–216 GPUs vs 640–1440) using synthetic DL model FLOP/memory block profiles.
+* **Shared Seed Correlation**: The 16 environments share seeds and arrival streams, and Base and High-bandwidth clusters yield near-identical allocation patterns; p-values across environments are indicative rather than independent.
+* **L4 Starvation at High $\lambda$**: In clusters with only L4 and V100 GPUs (e.g., High-performance) and latency-critical workloads (e.g., ViT with a 50 ms SLA that is physically impossible on V100), high $\lambda$ causes earlier non-latency tasks to consume all L4 racks. Latency-critical tasks are then rejected while V100 GPUs sit idle, reducing admission capacity.
+* **Link Penalty**: Network links are unpenalized by default (`penalize_links=False`) to avoid amplifying optical switch link costs over GPU costs.
+* **Search Effort**: Evaluated under a fixed ACO search configuration ($N_{\mathrm{ants}}=20, N_{\mathrm{iter}}=8, \text{extra\_stages}=6$).
+""")
 
 # ------------------------------------------------------------------------------------------ About
 with tab_about:

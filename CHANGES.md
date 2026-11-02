@@ -114,3 +114,39 @@ Branch created from commit `2f604d2` (baseline).
 - `fig5_heatmap_alloc_tdp_change.png` & `.csv`: Heatmap of energy savings across all 16 envs
 - `fig6_tradeoff_services_vs_tdp.png` & `.csv`: Energy vs capacity tradeoff scatter
 - `fig7_method_comparison.png` & `.csv`: Method comparison (RAMPA vs NCAR vs PE) at common reference stage
+
+---
+
+## 6. Interactive Dashboard: "Energy (e-RAMPA)" Tab (`erampa-dashboard` branch)
+
+Branch `erampa-dashboard` branched from `erampa`.
+
+### Key Enhancements:
+1. **`app.py` (+148 lines)**:
+   - Added 6th tab `"Energy (e-RAMPA)"` via `st.tabs(...)`. All existing tabs remain unchanged.
+   - Added `@st.cache_data simulate_energy(kind, mix, seed, lam, n_ants=20, n_iter=8, extra_stages=6)` running RAMPA at $\lambda$ and $\lambda=0$ on the same arrivals.
+   - Added `@st.cache_data load_energy_data()` reading `energy_runs.csv` and `energy_steps.csv`.
+   - All interactive widgets prefixed with `key="en_..."` to guarantee unique IDs.
+   - 0 hardcoded numbers in text; all metrics derive dynamically from CSVs or live simulation.
+   - Graceful fallback: displays friendly `st.info` with generation commands if results files are missing.
+
+2. **`energy_dash.py` (new helper module, 401 lines)**:
+   - Data loading, reference load point extraction ($N_{\mathrm{ref},A}$ and $N_{\mathrm{ref},B}$), and cluster total GPU lookup.
+   - `get_explorer_data()`: Computes %Δ allocated TDP, %Δ admitted count, GPU type breakdown, and cumulative TDP trajectory.
+   - `get_method_comparison_data()`: Tabulates RAMPA ($\lambda=0, 1, 5$), NCAR ($p=0$), and PipeEdge ($p=0$) at common load $N_{\mathrm{ref},B}$.
+   - `get_idle_efficiency_data()`: Evaluates endpoint services/kW across static idle power fractions $f \in [0, 0.5]$.
+   - Visualizations using `viz._style` and consistent palette: `plot_gpu_types_stacked`, `plot_cum_tdp_diff`, `plot_live_comparison`, `plot_live_gpu_bar`.
+
+3. **Page Sections**:
+   - **Explanation & Nominal Proxy**: Formula $\mathcal{C}_{g,\mathrm{pen}} = \mathcal{C}_g \cdot (1 + \lambda \cdot \mathrm{TDP}/\mathrm{TDP}_{\max})$, nominal TDP table (`TDP_W`), and proxy disclaimer.
+   - **Results Explorer**: Selectors for $\lambda$ and environment; reports %Δ TDP at $N_{\mathrm{ref},A}$ and %Δ admitted services with stacked bar chart and cumulative difference curve.
+   - **Method Comparison**: RAMPA $\lambda=0, 1, 5$ vs NCAR vs PipeEdge at $N_{\mathrm{ref},B}$ highlighting that PipeEdge's apparent low power is an artifact of premature admission failure.
+   - **Idle Power Sensitivity**: Interactive selector and slider for $f \in [0, 0.5]$ and rendering of `results/energy/diag/idle_curve_v2.png`.
+   - **Live Simulator Demo**: Interactive cluster, mix, seed, and $\lambda$ slider running live comparison of $\lambda=0$ vs chosen $\lambda$ with dual metric cards and dynamic plots.
+   - **Limitations**: Comprehensive callout covering nominal TDP proxy, scaled topologies, shared seed correlations, High-performance L4 starvation, unpenalized links, and fixed search effort.
+
+### Testing & Validation:
+- `python tests.py`: All 7 tests passed (T0a-c, T1-T4).
+- `streamlit.testing.v1.AppTest`: Headless rendering passed with 0 exceptions on initial view and after interactive widget updates (`en_lam_sel=5.0`, `en_env_sel="Base / Low-delay heavy"`).
+- Missing files fallback: Tested in isolated temporary directory without `results/energy/`; verified friendly `st.info` displayed without crash.
+- `streamlit run app.py`: Ran headlessly for 30 seconds; 0 runtime errors or warnings.

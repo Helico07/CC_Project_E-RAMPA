@@ -1,0 +1,31 @@
+cluster,mix,lam,seed,admitted,rejected_svc,category,free_L4,free_V100,used_L4,used_V100,v100_sla_ok,v100_placeable,l4_sla_ok,l4_placeable
+High-performance,Low-delay heavy,0.0,0,40,S3 ViT (image cls),LD,0,0,24,24,False,False,True,False
+High-performance,Low-delay heavy,0.0,1,36,S4 Gemma2-2b (textgen),LD,0,0,24,24,True,False,True,False
+High-performance,Low-delay heavy,0.0,2,34,S3 ViT (image cls),LD,0,2,24,22,False,False,True,False
+High-performance,Low-delay heavy,0.0,3,39,S3 ViT (image cls),LD,0,7,24,17,False,False,True,False
+High-performance,Low-delay heavy,0.0,4,27,S3 ViT (image cls),LD,0,15,24,9,False,False,True,False
+High-performance,Low-delay heavy,0.0,5,39,S4 Gemma2-2b (textgen),LD,0,0,24,24,True,False,True,False
+High-performance,Low-delay heavy,0.0,6,38,S3 ViT (image cls),LD,0,7,24,17,False,False,True,False
+High-performance,Low-delay heavy,0.0,7,42,S5 Gemma2-27b (chat),HM,2,0,22,24,True,False,True,False
+High-performance,Low-delay heavy,0.0,8,36,S3 ViT (image cls),LD,0,8,24,16,False,False,True,False
+High-performance,Low-delay heavy,0.0,9,38,S4 Gemma2-2b (textgen),LD,0,0,24,24,True,False,True,False
+High-performance,Low-delay heavy,1.0,0,40,S3 ViT (image cls),LD,0,0,24,24,False,False,True,False
+High-performance,Low-delay heavy,1.0,1,26,S3 ViT (image cls),LD,0,13,24,11,False,False,True,False
+High-performance,Low-delay heavy,1.0,2,34,S3 ViT (image cls),LD,0,2,24,22,False,False,True,False
+High-performance,Low-delay heavy,1.0,3,39,S3 ViT (image cls),LD,0,7,24,17,False,False,True,False
+High-performance,Low-delay heavy,1.0,4,24,S3 ViT (image cls),LD,0,18,24,6,False,False,True,False
+High-performance,Low-delay heavy,1.0,5,39,S4 Gemma2-2b (textgen),LD,0,0,24,24,True,False,True,False
+High-performance,Low-delay heavy,1.0,6,29,S3 ViT (image cls),LD,0,15,24,9,False,False,True,False
+High-performance,Low-delay heavy,1.0,7,29,S3 ViT (image cls),LD,0,17,24,7,False,False,True,False
+High-performance,Low-delay heavy,1.0,8,36,S3 ViT (image cls),LD,0,7,24,17,False,False,True,False
+High-performance,Low-delay heavy,1.0,9,28,S3 ViT (image cls),LD,0,12,24,12,False,False,True,False
+High-performance,Low-delay heavy,5.0,0,30,S3 ViT (image cls),LD,0,12,24,12,False,False,True,False
+High-performance,Low-delay heavy,5.0,1,24,S3 ViT (image cls),LD,0,15,24,9,False,False,True,False
+High-performance,Low-delay heavy,5.0,2,21,S3 ViT (image cls),LD,0,16,24,8,False,False,True,False
+High-performance,Low-delay heavy,5.0,3,26,S3 ViT (image cls),LD,0,20,24,4,False,False,True,False
+High-performance,Low-delay heavy,5.0,4,24,S3 ViT (image cls),LD,0,18,24,6,False,False,True,False
+High-performance,Low-delay heavy,5.0,5,26,S3 ViT (image cls),LD,0,16,24,8,False,False,True,False
+High-performance,Low-delay heavy,5.0,6,29,S3 ViT (image cls),LD,0,14,24,10,False,False,True,False
+High-performance,Low-delay heavy,5.0,7,23,S3 ViT (image cls),LD,0,23,24,1,False,False,True,False
+High-performance,Low-delay heavy,5.0,8,28,S3 ViT (image cls),LD,0,17,24,7,False,False,True,False
+High-performance,Low-delay heavy,5.0,9,19,S3 ViT (image cls),LD,0,23,24,1,False,False,True,False
