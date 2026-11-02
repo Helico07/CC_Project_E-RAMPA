@@ -2,116 +2,115 @@
 
 Branch created from commit `2f604d2` (baseline).
 
-## Modified files
+---
+
+## 1. Code Changes
 
 ### `core.py` (+17 lines, 0 deleted)
-
-**TDP constants** (after `GPU_TYPES`, lines 51-52):
-```python
-TDP_W: dict[str, float] = {"A": 72.0, "B": 250.0, "C": 165.0, "D": 70.0}
-TDP_MAX: float = 250.0
-```
-V100 PCIe = 250 W = TDP_MAX, so V100 gets penalty factor exactly 2 at λ=1.
-
-**`Cluster.__init__`** — three new attributes after `rack_mem`:
-```python
-self.rack_tdp = np.array([TDP_W[GPU_TYPES[t].short] for t in self.types])
-self.lam: float = 0.0          # energy penalty weight (default = off)
-self.penalize_links: bool = False
-```
-
-**`Cluster.costs()`** — replaced 4 lines, added 10:
-- Computes `gpu_cost0` (unchanged Eq. 4 product).
-- Computes `penal = 1 + lam * rack_tdp / TDP_MAX` (all-ones when `lam=0`).
-- `gpu_cost_pen = gpu_cost0 * penal` is returned as the first element.
-- `gpu_for_links` selects between `gpu_cost_pen` and `gpu_cost0` based on
-  `penalize_links`, controlling whether the link/access costs are also penalised.
-- **With `lam=0`: all returned arrays are bit-identical to the baseline.**
-
-`context()` and `_evaluate()` are **not modified**; they consume `costs()` output
-unchanged, so the heuristic `1/Cg` and the objective GPU-cost term are automatically
-penalised.
+- **TDP constants** (after `GPU_TYPES`, lines 51-52):
+  ```python
+  TDP_W: dict[str, float] = {"A": 72.0, "B": 250.0, "C": 165.0, "D": 70.0}
+  TDP_MAX: float = 250.0
+  ```
+  V100 PCIe = 250 W = TDP_MAX (penalty factor exactly 2.0 at λ=1).
+- **`Cluster.__init__`** — added `self.rack_tdp`, `self.lam = 0.0`, `self.penalize_links = False`.
+- **`Cluster.costs()`** — calculates `gpu_cost0`, `penal = 1.0 + self.lam * self.rack_tdp / TDP_MAX`, `gpu_cost_pen = gpu_cost0 * penal`.
+  `gpu_for_links` is `gpu_cost_pen` if `self.penalize_links` else `gpu_cost0`. Returns `gpu_cost_pen, access_cost, link_cost`.
+  Bit-identical to baseline at λ=0.
+- `context()` and `_evaluate()` are untouched and automatically use `gpu_cost_pen`.
 
 ### `sim.py` (+5 lines, 1 modified)
+- `run_fill(..., lam=0.0, penalize_links=False)` passes `lam` and `penalize_links` to `cl`.
+- Forces `cl.lam = 0.0` when `method == "PE"`.
 
-`run_fill()` signature extended with two keyword arguments:
-```python
-def run_fill(..., lam=0.0, penalize_links=False):
-```
-After `Cluster(spec)`:
-```python
-cl.lam = 0.0 if method == "PE" else lam   # PE always ignores energy penalty
-cl.penalize_links = penalize_links
-```
-All existing callers (`run_experiments.py`, `app.py`, tests) are unaffected (default
-values preserve baseline behaviour). `run_dynamic()` is **not modified** (out of scope).
+### `tests.py` (+168 lines)
+- Preserves original tests `test_eq5()`, `test_plans()`, `test_bookkeeping()`.
+- Added T1 (`test_lam0_regression`), T2 (`test_penalty_factor`), T3 (`test_energy_accounting`), T4 (`test_pe_ignores_lam`).
 
-### `tests.py` (+168 lines, imports extended)
+### `energy.py` (new file, 56 lines)
+- `alloc_series(records, spec)` calculates cumulative `gpus_in_use`, `alloc_tdp` (nominal W), and GPU counts per type `n_A, n_B, n_C, n_D`.
 
-Added imports: `json`, `subprocess`, `sys`; `from energy import alloc_series`.
+### `diagnose_part_a.py` (new file)
+- Diagnostic script for Part A (A1 comparisons, A2 crossover table, A3 cost decomposition).
 
-Four new test functions (T1–T4); original three tests unchanged:
+### `run_energy.py` (new file)
+- Experiment runner for the full 16 envs x 10 seeds grid (1760 runs) using 12-core multiprocessing.
+- Outputs `results/energy/energy_runs.csv` and `results/energy/energy_steps.csv`.
+- Confirmed: 160 / 160 runs at λ=0 RAMPA match baseline `results/fill.csv` bit-identically.
 
-| Test | What it checks |
-|------|---------------|
-| **T1** `test_lam0_regression` | Runs baseline worktree and new code in subprocesses for all 16 (cluster × mix) × seeds {0,1,2} × {RAMPA, NCAR p=0}; asserts count and per-record (racks, cost) are identical. |
-| **T2** `test_penalty_factor` | Verifies `gpu_cost_pen == gpu_cost0 * (1 + TDP/TDP_MAX)` per rack; with `penalize_links=False` access and link costs equal the `lam=0` values; with `penalize_links=True` the brute-force Eq.(5) check still passes using the penalised Cg. |
-| **T3** `test_energy_accounting` | With `snapshots=True`, verifies `alloc_series` `gpus_in_use` and `alloc_tdp` match the ground truth derived from `rec["free"]` at every step. |
-| **T4** `test_pe_ignores_lam` | Asserts `run_fill(PE, lam=1)` produces identical count and records to `run_fill(PE, lam=0)`. |
+### `analyze_energy.py` (new file)
+- Analysis script computing pooled and environment-level statistics, Holm-adjusted p-values, honest reporting checks, and generating Figures 1–7 (PNG + CSV).
 
-## New files
+---
 
-### `energy.py`
+## 2. Part A: Diagnostics (Why λ=1 and λ=5 Appeared Identical in Smoke Test)
 
-```
-alloc_series(records, spec) -> list[dict]
-```
-Consumes `FillResult.records` (must contain `"racks"` list). Returns one dict per
-admitted request with:
-- `step` — admission step (1-based)
-- `gpus_in_use` — cumulative individual GPUs in use (one per pipeline stage)
-- `alloc_tdp` — cumulative nominal TDP (W) of all in-use GPUs (independent of `lam`)
-- `n_A`, `n_B`, `n_C`, `n_D` — cumulative count per GPU type (L4, V100, A30, T4)
+1. **A1 (Breadth across 16 envs × 5 seeds = 80 pairs):**
+   - Placements between λ=1 and λ=5 actually **differ in 91.2% (73/80)** of environments and seeds!
+   - Services admitted differ in **36.2% (29/80)** of environments and seeds.
+   - The first differing request has median step 7 (mean step 9.5).
+   - In the smoke test (Base, Same demand, seeds 0–2), early placement steps happened to coincide.
 
-## Unchanged files
+2. **A2 (Crossover confirmation):**
+   - At λ=0: D (777.6) < C (1483.2) < B (2688.0) < A (4363.2). V100 is cheaper than L4 due to lower FLOPS.
+   - At λ=1.0: D (995.3) < C (2462.1) < B (5376.0) < A (5619.8). V100 remains cheaper than L4.
+   - At λ=1.1703: Exact crossover where Cg_pen(L4) = Cg_pen(V100) = 5833.8.
+   - At λ≥2.0: D < C < A < B. L4 becomes cheaper than V100.
 
-`run_experiments.py`, `make_figures.py`, `app.py`, `viz.py` — **not modified**.  
-Partition DP (`_plan`, `plan_partition`), constraint checks, PE logic — **not modified**.
+3. **A3 (Cost Decomposition):**
+   - Multi-stage requests in Base cluster: GPU cost is ~5k–21k, but `access_cost` is ~198k–360k.
+   - GPU cost is only **1.4% – 5.9%** of total candidate cost for multi-stage requests.
+   - When `penalize_links=False`, access costs are unpenalized, so 95%+ of the candidate score is invariant to λ. This causes saturation between moderate and high λ for multi-stage requests.
 
-## Callers of `Cluster.costs()` / `Cluster.context()` (full repo grep)
+---
 
-| File | Line | Call | Status |
-|------|------|------|--------|
-| `core.py` | 572 | `context()` calls `self.costs()` internally | ✅ unchanged |
-| `core.py` | 802 | `allocate()` calls `cl.context(objective)` | ✅ unchanged |
-| `tests.py` | 44 | `cl.costs()` in `test_eq5()` | ✅ unchanged (lam=0 default) |
-| `app.py` | — | no direct call | ✅ unaffected |
-| `viz.py` | — | no direct call | ✅ unaffected |
+## 3. Part B: Experiment Execution
 
-## Smoke test results (Step 3)
+- Grid: 4 clusters × 4 mixes × 10 seeds × 11 configurations = 1760 runs.
+- Sequential estimate: 53.2 minutes; 12-core parallel execution completed in **506.5 seconds (8.44 minutes)**.
+- **Verification:** Exactly 160 / 160 (100%) runs for RAMPA λ=0 (links=0) match `results/fill.csv` exact counts.
 
-Base cluster, "Same demand", RAMPA, seeds 0–2, `penalize_links=False`.  
-N_ref = floor(0.75 × 37) = **27** (37 = minimum admitted across all 9 runs).
+---
 
-```
-  lam  seed  admitted  gpus_in_use  alloc_tdp_W  n_L4 n_V100  n_A30   n_T4  runtime
------------------------------------------------------------------------------------
-    0     0        41           45       6767.0    16     12     15      2  0.47s
-    0     1        38           56       8028.0    24     12     20      0  0.46s
-    0     2        37           52       7829.0    17     12     21      2  0.48s
-    1     0        43           45       6227.0    16      9     15      5  0.52s
-    1     1        38           56       8121.0    23     12     21      0  0.46s
-    1     2        40           52       7829.0    17     12     21      2  0.49s
-    5     0        43           45       6227.0    16      9     15      5  0.49s
-    5     1        38           56       8121.0    23     12     21      0  0.48s
-    5     2        40           52       7829.0    17     12     21      2  0.48s
-```
+## 4. Part C: Key Statistical Findings & Figures
 
-**Observations:**
-- λ=0: lam=0 results match baseline exactly (confirmed by T1).
-- λ=1,5: seed 0 shows V100 usage dropping from 12 → 9 and T4 rising 2 → 5, confirming
-  the penalty steers the ant search away from high-TDP GPUs.
-- `alloc_tdp` at N_ref=27: seed 0 drops from 6767 W → 6227 W with λ≥1 (−8%), while
-  total admitted *increases* slightly (+2 services), suggesting the penalty improves
-  GPU-type diversity without hurting packing.
-- Runtime per run: ~0.47–0.52 s (no measurable overhead from the penalty computation).
+### Statistical Significance (Pooled across 16 Environments, N_ref_A):
+- **`alloc_tdp`**: Decreases significantly across all tested λ > 0.
+  - λ=0.25: −2.1% (p_wilcoxon = 0.00043, Holm p = 0.0026, Sign test: 0 pos, 16 neg, p = 0.00003)
+  - λ=0.50: −2.5% (p_wilcoxon = 0.00043, Holm p = 0.0026, Sign test: 0 pos, 16 neg, p = 0.00003)
+  - λ=1.00: −4.2% (p_wilcoxon = 0.00043, Holm p = 0.0026, Sign test: 0 pos, 16 neg, p = 0.00003)
+  - λ=2.00: −6.5% (p_wilcoxon = 0.00043, Holm p = 0.0026, Sign test: 0 pos, 16 neg, p = 0.00003)
+  - λ=5.00: −7.7% (p_wilcoxon = 0.00043, Holm p = 0.0026, Sign test: 0 pos, 16 neg, p = 0.00003)
+  - λ=10.0: −9.2% (p_wilcoxon = 0.00043, Holm p = 0.0026, Sign test: 0 pos, 16 neg, p = 0.00003)
+- **`tdp_per_gpu`**: Decreases by −4.1% at λ=1 and −7.4% at λ=5 (Holm p = 0.00316).
+- **`count` (admitted capacity)**: Mean capacity impact is small at moderate λ (−0.97% at λ=1.0, Holm p = 1.000), increasing to −3.5% at λ=5.0 and −3.9% at λ=10.0 (Holm p = 0.24).
+
+### Honest Reporting Checks:
+1. **Capacity Drops**: In High-performance / Low-delay heavy, high λ causes significant service drops (e.g., −28.9% at λ=2, −31.5% at λ=5) because penalizing V100/A30 restricts options where latency requires fast/high-bandwidth GPUs.
+2. **Allocated TDP**: Falls in all 16 environments for all λ > 0 (0 exceptions).
+3. **`penalize_links=True`**: Slightly further reduces TDP by −2.0% (λ=1) and −3.5% (λ=5), with a negligible capacity drop (−0.4 to −0.6 services). 120/160 runs are identical in admitted count.
+4. **Saturation**: TDP reduction shows diminishing returns (−4.2% at λ=1, −6.5% at λ=2, −7.7% at λ=5, −9.2% at λ=10).
+5. **Mechanism**:
+   - V100 (250W) count drops from 13.6 → 12.7 (λ=1) → 11.4 (λ=10) [Δ = −2.2 GPUs].
+   - A30 (165W) drops from 11.6 → 11.1 [Δ = −0.4 GPUs].
+   - L4 (72W) increases from 17.8 → 18.4 (λ=1) → 19.7 (λ=10) [Δ = +1.9 GPUs].
+   - T4 (70W) increases from 3.2 → 3.9 (λ=1) → 3.7 (λ=10) [Δ = +0.5 GPUs].
+   - Thus, V100 is directly substituted by low-power L4 and T4 GPUs.
+
+---
+
+## 5. Artifacts and Output Files Produced
+
+### Data files (`results/energy/`):
+- `energy_runs.csv`: 1,760 experiment runs
+- `energy_steps.csv`: 73,738 per-admission records
+- `pooled_statistics.csv`: Summary statistics with Holm-adjusted p-values
+
+### Figures and behind-the-figure CSVs (`results/energy/`):
+- `fig1_services_vs_lam.png` & `.csv`: Services vs λ
+- `fig2_alloc_tdp_vs_lam.png` & `.csv`: Small-multiples % Δ TDP vs λ
+- `fig3_gpu_types_vs_lam.png` & `.csv`: Stacked GPU type usage
+- `fig4_cum_tdp_diff_over_requests.png` & `.csv`: Trajectory over request arrival stream
+- `fig5_heatmap_alloc_tdp_change.png` & `.csv`: Heatmap of energy savings across all 16 envs
+- `fig6_tradeoff_services_vs_tdp.png` & `.csv`: Energy vs capacity tradeoff scatter
+- `fig7_method_comparison.png` & `.csv`: Method comparison (RAMPA vs NCAR vs PE) at common reference stage
