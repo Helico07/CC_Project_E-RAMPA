@@ -1,0 +1,846 @@
+{
+ "seeds": 10,
+ "mean_gain_vs_ncar_best": 18.10555071181321,
+ "mean_gain_vs_pe_best": 73.2969139841106,
+ "min_gain_vs_ncar_best": -0.19212295869355245,
+ "max_gain_vs_ncar_best": 55.10204081632655,
+ "min_gain_vs_pe_best": 5.063291139240511,
+ "max_gain_vs_pe_best": 125.0,
+ "envs": 16,
+ "envs_rampa_wins_ncar": 15,
+ "envs_rampa_wins_pe": 16,
+ "pe_count_at_demo": 13,
+ "demo_counts": {
+  "PE": 13,
+  "NCAR": 26,
+  "RAMPA": 38
+ },
+ "main_base": {
+  "High-throughput heavy": {
+   "cluster": "Base",
+   "RAMPA": 29.8,
+   "RAMPA_std": 6.3,
+   "NCAR_best": 29.2,
+   "NCAR_avg": 24.7,
+   "NCAR_worst": 18.2,
+   "PE_best": 18.6,
+   "PE_avg": 16.8,
+   "PE_worst": 15.7,
+   "gain_vs_NCAR_best_%": 2.1,
+   "gain_vs_PE_best_%": 60.2,
+   "gain_vs_PE_avg_%": 77.0
+  },
+  "Huge-model heavy": {
+   "cluster": "Base",
+   "RAMPA": 30.2,
+   "RAMPA_std": 1.6,
+   "NCAR_best": 19.6,
+   "NCAR_avg": 18.3,
+   "NCAR_worst": 16.0,
+   "PE_best": 17.4,
+   "PE_avg": 14.5,
+   "PE_worst": 11.8,
+   "gain_vs_NCAR_best_%": 54.1,
+   "gain_vs_PE_best_%": 73.6,
+   "gain_vs_PE_avg_%": 108.3
+  },
+  "Low-delay heavy": {
+   "cluster": "Base",
+   "RAMPA": 42.3,
+   "RAMPA_std": 6.2,
+   "NCAR_best": 41.5,
+   "NCAR_avg": 29.7,
+   "NCAR_worst": 18.3,
+   "PE_best": 23.2,
+   "PE_avg": 14.6,
+   "PE_worst": 8.5,
+   "gain_vs_NCAR_best_%": 1.9,
+   "gain_vs_PE_best_%": 82.3,
+   "gain_vs_PE_avg_%": 190.4
+  },
+  "Same demand": {
+   "cluster": "Base",
+   "RAMPA": 39.4,
+   "RAMPA_std": 4.6,
+   "NCAR_best": 35.5,
+   "NCAR_avg": 29.1,
+   "NCAR_worst": 23.5,
+   "PE_best": 17.6,
+   "PE_avg": 14.3,
+   "PE_worst": 12.4,
+   "gain_vs_NCAR_best_%": 11.0,
+   "gain_vs_PE_best_%": 123.9,
+   "gain_vs_PE_avg_%": 175.5
+  }
+ },
+ "noise": {
+  "NCAR": {
+   "0.0": 0.0,
+   "0.05": 0.0,
+   "0.1": 0.0256,
+   "0.15": 0.0608,
+   "0.2": 0.0838,
+   "0.3": 0.1045
+  },
+  "PE": {
+   "0.0": 0.0,
+   "0.05": 0.0,
+   "0.1": 0.0243,
+   "0.15": 0.0429,
+   "0.2": 0.0514,
+   "0.3": 0.0604
+  },
+  "RAMPA m=0%": {
+   "0.0": 0.0,
+   "0.05": 0.0,
+   "0.1": 0.0242,
+   "0.15": 0.0608,
+   "0.2": 0.0833,
+   "0.3": 0.107
+  },
+  "RAMPA m=10%": {
+   "0.0": 0.0,
+   "0.05": 0.0,
+   "0.1": 0.0,
+   "0.15": 0.0186,
+   "0.2": 0.0335,
+   "0.3": 0.0519
+  },
+  "RAMPA m=20%": {
+   "0.0": 0.0,
+   "0.05": 0.0,
+   "0.1": 0.0,
+   "0.15": 0.0,
+   "0.2": 0.0,
+   "0.3": 0.0048
+  },
+  "RAMPA m=30%": {
+   "0.0": 0.0,
+   "0.05": 0.0,
+   "0.1": 0.0,
+   "0.15": 0.0,
+   "0.2": 0.0,
+   "0.3": 0.0
+  },
+  "RAMPA m=5%": {
+   "0.0": 0.0,
+   "0.05": 0.0,
+   "0.1": 0.0242,
+   "0.15": 0.0608,
+   "0.2": 0.0833,
+   "0.3": 0.107
+  }
+ },
+ "margin_admitted": {
+  "NCAR": 35.5,
+  "PE": 17.6,
+  "RAMPA m=0%": 39.4,
+  "RAMPA m=10%": 33.4,
+  "RAMPA m=20%": 32.6,
+  "RAMPA m=30%": 31.2,
+  "RAMPA m=5%": 39.4
+ },
+ "dynamic": [
+  {
+   "method": "NCAR",
+   "load": 10,
+   "blocking": 0.0005,
+   "util": 0.2137
+  },
+  {
+   "method": "NCAR",
+   "load": 20,
+   "blocking": 0.0181,
+   "util": 0.4199
+  },
+  {
+   "method": "NCAR",
+   "load": 30,
+   "blocking": 0.0837,
+   "util": 0.5435
+  },
+  {
+   "method": "NCAR",
+   "load": 40,
+   "blocking": 0.1525,
+   "util": 0.6317
+  },
+  {
+   "method": "NCAR",
+   "load": 50,
+   "blocking": 0.3099,
+   "util": 0.6887
+  },
+  {
+   "method": "PE",
+   "load": 10,
+   "blocking": 0.0096,
+   "util": 0.2117
+  },
+  {
+   "method": "PE",
+   "load": 20,
+   "blocking": 0.1269,
+   "util": 0.381
+  },
+  {
+   "method": "PE",
+   "load": 30,
+   "blocking": 0.2459,
+   "util": 0.4552
+  },
+  {
+   "method": "PE",
+   "load": 40,
+   "blocking": 0.3125,
+   "util": 0.5147
+  },
+  {
+   "method": "PE",
+   "load": 50,
+   "blocking": 0.4096,
+   "util": 0.5898
+  },
+  {
+   "method": "RAMPA",
+   "load": 10,
+   "blocking": 0.0,
+   "util": 0.2154
+  },
+  {
+   "method": "RAMPA",
+   "load": 20,
+   "blocking": 0.0027,
+   "util": 0.45
+  },
+  {
+   "method": "RAMPA",
+   "load": 30,
+   "blocking": 0.0421,
+   "util": 0.6524
+  },
+  {
+   "method": "RAMPA",
+   "load": 40,
+   "blocking": 0.1083,
+   "util": 0.7976
+  },
+  {
+   "method": "RAMPA",
+   "load": 50,
+   "blocking": 0.2544,
+   "util": 0.913
+  }
+ ],
+ "frag": [
+  {
+   "method": "NCAR",
+   "step": 1,
+   "full_free": 15.0
+  },
+  {
+   "method": "NCAR",
+   "step": 2,
+   "full_free": 14.4
+  },
+  {
+   "method": "NCAR",
+   "step": 3,
+   "full_free": 14.0
+  },
+  {
+   "method": "NCAR",
+   "step": 4,
+   "full_free": 13.5
+  },
+  {
+   "method": "NCAR",
+   "step": 5,
+   "full_free": 13.1
+  },
+  {
+   "method": "NCAR",
+   "step": 6,
+   "full_free": 13.0
+  },
+  {
+   "method": "NCAR",
+   "step": 7,
+   "full_free": 12.9
+  },
+  {
+   "method": "NCAR",
+   "step": 8,
+   "full_free": 12.2
+  },
+  {
+   "method": "NCAR",
+   "step": 9,
+   "full_free": 11.8
+  },
+  {
+   "method": "NCAR",
+   "step": 10,
+   "full_free": 11.6
+  },
+  {
+   "method": "NCAR",
+   "step": 11,
+   "full_free": 11.4
+  },
+  {
+   "method": "NCAR",
+   "step": 12,
+   "full_free": 11.0
+  },
+  {
+   "method": "NCAR",
+   "step": 13,
+   "full_free": 10.4
+  },
+  {
+   "method": "NCAR",
+   "step": 14,
+   "full_free": 10.1
+  },
+  {
+   "method": "NCAR",
+   "step": 15,
+   "full_free": 9.5
+  },
+  {
+   "method": "NCAR",
+   "step": 16,
+   "full_free": 9.5
+  },
+  {
+   "method": "NCAR",
+   "step": 17,
+   "full_free": 9.3
+  },
+  {
+   "method": "NCAR",
+   "step": 18,
+   "full_free": 9.1
+  },
+  {
+   "method": "NCAR",
+   "step": 19,
+   "full_free": 9.0
+  },
+  {
+   "method": "NCAR",
+   "step": 20,
+   "full_free": 8.5
+  },
+  {
+   "method": "NCAR",
+   "step": 21,
+   "full_free": 8.1
+  },
+  {
+   "method": "NCAR",
+   "step": 22,
+   "full_free": 7.7
+  },
+  {
+   "method": "NCAR",
+   "step": 23,
+   "full_free": 7.6
+  },
+  {
+   "method": "NCAR",
+   "step": 24,
+   "full_free": 7.3
+  },
+  {
+   "method": "NCAR",
+   "step": 25,
+   "full_free": 7.2
+  },
+  {
+   "method": "NCAR",
+   "step": 26,
+   "full_free": 7.0
+  },
+  {
+   "method": "NCAR",
+   "step": 27,
+   "full_free": 6.75
+  },
+  {
+   "method": "NCAR",
+   "step": 28,
+   "full_free": 6.5
+  },
+  {
+   "method": "NCAR",
+   "step": 29,
+   "full_free": 6.25
+  },
+  {
+   "method": "NCAR",
+   "step": 30,
+   "full_free": 5.29
+  },
+  {
+   "method": "NCAR",
+   "step": 31,
+   "full_free": 4.86
+  },
+  {
+   "method": "NCAR",
+   "step": 32,
+   "full_free": 4.86
+  },
+  {
+   "method": "NCAR",
+   "step": 33,
+   "full_free": 4.43
+  },
+  {
+   "method": "NCAR",
+   "step": 34,
+   "full_free": 4.14
+  },
+  {
+   "method": "NCAR",
+   "step": 35,
+   "full_free": 4.0
+  },
+  {
+   "method": "NCAR",
+   "step": 36,
+   "full_free": 3.43
+  },
+  {
+   "method": "NCAR",
+   "step": 37,
+   "full_free": 3.6
+  },
+  {
+   "method": "NCAR",
+   "step": 38,
+   "full_free": 3.6
+  },
+  {
+   "method": "NCAR",
+   "step": 39,
+   "full_free": 3.75
+  },
+  {
+   "method": "NCAR",
+   "step": 40,
+   "full_free": 3.33
+  },
+  {
+   "method": "NCAR",
+   "step": 41,
+   "full_free": 3.0
+  },
+  {
+   "method": "NCAR",
+   "step": 42,
+   "full_free": 2.0
+  },
+  {
+   "method": "NCAR",
+   "step": 43,
+   "full_free": 2.0
+  },
+  {
+   "method": "PE",
+   "step": 1,
+   "full_free": 14.1
+  },
+  {
+   "method": "PE",
+   "step": 2,
+   "full_free": 12.9
+  },
+  {
+   "method": "PE",
+   "step": 3,
+   "full_free": 12.0
+  },
+  {
+   "method": "PE",
+   "step": 4,
+   "full_free": 11.3
+  },
+  {
+   "method": "PE",
+   "step": 5,
+   "full_free": 10.5
+  },
+  {
+   "method": "PE",
+   "step": 6,
+   "full_free": 10.5
+  },
+  {
+   "method": "PE",
+   "step": 7,
+   "full_free": 10.4
+  },
+  {
+   "method": "PE",
+   "step": 8,
+   "full_free": 10.4
+  },
+  {
+   "method": "PE",
+   "step": 9,
+   "full_free": 9.8
+  },
+  {
+   "method": "PE",
+   "step": 10,
+   "full_free": 9.5
+  },
+  {
+   "method": "PE",
+   "step": 11,
+   "full_free": 9.5
+  },
+  {
+   "method": "PE",
+   "step": 12,
+   "full_free": 9.4
+  },
+  {
+   "method": "PE",
+   "step": 13,
+   "full_free": 9.1
+  },
+  {
+   "method": "PE",
+   "step": 14,
+   "full_free": 9.11
+  },
+  {
+   "method": "PE",
+   "step": 15,
+   "full_free": 8.78
+  },
+  {
+   "method": "PE",
+   "step": 16,
+   "full_free": 8.67
+  },
+  {
+   "method": "PE",
+   "step": 17,
+   "full_free": 8.8
+  },
+  {
+   "method": "PE",
+   "step": 18,
+   "full_free": 8.25
+  },
+  {
+   "method": "PE",
+   "step": 19,
+   "full_free": 8.5
+  },
+  {
+   "method": "PE",
+   "step": 20,
+   "full_free": 8.5
+  },
+  {
+   "method": "PE",
+   "step": 21,
+   "full_free": 8.5
+  },
+  {
+   "method": "PE",
+   "step": 22,
+   "full_free": 8.0
+  },
+  {
+   "method": "PE",
+   "step": 23,
+   "full_free": 8.0
+  },
+  {
+   "method": "PE",
+   "step": 24,
+   "full_free": 8.0
+  },
+  {
+   "method": "PE",
+   "step": 25,
+   "full_free": 8.0
+  },
+  {
+   "method": "PE",
+   "step": 26,
+   "full_free": 8.0
+  },
+  {
+   "method": "PE",
+   "step": 27,
+   "full_free": 8.0
+  },
+  {
+   "method": "PE",
+   "step": 28,
+   "full_free": 8.0
+  },
+  {
+   "method": "RAMPA",
+   "step": 1,
+   "full_free": 15.0
+  },
+  {
+   "method": "RAMPA",
+   "step": 2,
+   "full_free": 14.4
+  },
+  {
+   "method": "RAMPA",
+   "step": 3,
+   "full_free": 13.9
+  },
+  {
+   "method": "RAMPA",
+   "step": 4,
+   "full_free": 13.4
+  },
+  {
+   "method": "RAMPA",
+   "step": 5,
+   "full_free": 13.1
+  },
+  {
+   "method": "RAMPA",
+   "step": 6,
+   "full_free": 13.0
+  },
+  {
+   "method": "RAMPA",
+   "step": 7,
+   "full_free": 12.8
+  },
+  {
+   "method": "RAMPA",
+   "step": 8,
+   "full_free": 12.0
+  },
+  {
+   "method": "RAMPA",
+   "step": 9,
+   "full_free": 11.7
+  },
+  {
+   "method": "RAMPA",
+   "step": 10,
+   "full_free": 11.6
+  },
+  {
+   "method": "RAMPA",
+   "step": 11,
+   "full_free": 11.4
+  },
+  {
+   "method": "RAMPA",
+   "step": 12,
+   "full_free": 11.0
+  },
+  {
+   "method": "RAMPA",
+   "step": 13,
+   "full_free": 10.4
+  },
+  {
+   "method": "RAMPA",
+   "step": 14,
+   "full_free": 10.1
+  },
+  {
+   "method": "RAMPA",
+   "step": 15,
+   "full_free": 9.6
+  },
+  {
+   "method": "RAMPA",
+   "step": 16,
+   "full_free": 9.6
+  },
+  {
+   "method": "RAMPA",
+   "step": 17,
+   "full_free": 9.5
+  },
+  {
+   "method": "RAMPA",
+   "step": 18,
+   "full_free": 9.1
+  },
+  {
+   "method": "RAMPA",
+   "step": 19,
+   "full_free": 9.0
+  },
+  {
+   "method": "RAMPA",
+   "step": 20,
+   "full_free": 8.6
+  },
+  {
+   "method": "RAMPA",
+   "step": 21,
+   "full_free": 8.2
+  },
+  {
+   "method": "RAMPA",
+   "step": 22,
+   "full_free": 7.8
+  },
+  {
+   "method": "RAMPA",
+   "step": 23,
+   "full_free": 7.5
+  },
+  {
+   "method": "RAMPA",
+   "step": 24,
+   "full_free": 7.4
+  },
+  {
+   "method": "RAMPA",
+   "step": 25,
+   "full_free": 6.8
+  },
+  {
+   "method": "RAMPA",
+   "step": 26,
+   "full_free": 6.4
+  },
+  {
+   "method": "RAMPA",
+   "step": 27,
+   "full_free": 6.1
+  },
+  {
+   "method": "RAMPA",
+   "step": 28,
+   "full_free": 5.9
+  },
+  {
+   "method": "RAMPA",
+   "step": 29,
+   "full_free": 5.5
+  },
+  {
+   "method": "RAMPA",
+   "step": 30,
+   "full_free": 5.3
+  },
+  {
+   "method": "RAMPA",
+   "step": 31,
+   "full_free": 5.0
+  },
+  {
+   "method": "RAMPA",
+   "step": 32,
+   "full_free": 4.44
+  },
+  {
+   "method": "RAMPA",
+   "step": 33,
+   "full_free": 4.11
+  },
+  {
+   "method": "RAMPA",
+   "step": 34,
+   "full_free": 4.0
+  },
+  {
+   "method": "RAMPA",
+   "step": 35,
+   "full_free": 3.78
+  },
+  {
+   "method": "RAMPA",
+   "step": 36,
+   "full_free": 3.44
+  },
+  {
+   "method": "RAMPA",
+   "step": 37,
+   "full_free": 2.62
+  },
+  {
+   "method": "RAMPA",
+   "step": 38,
+   "full_free": 2.14
+  },
+  {
+   "method": "RAMPA",
+   "step": 39,
+   "full_free": 3.0
+  },
+  {
+   "method": "RAMPA",
+   "step": 40,
+   "full_free": 3.0
+  },
+  {
+   "method": "RAMPA",
+   "step": 41,
+   "full_free": 2.25
+  },
+  {
+   "method": "RAMPA",
+   "step": 42,
+   "full_free": 2.0
+  },
+  {
+   "method": "RAMPA",
+   "step": 43,
+   "full_free": 1.67
+  },
+  {
+   "method": "RAMPA",
+   "step": 44,
+   "full_free": 1.0
+  },
+  {
+   "method": "RAMPA",
+   "step": 45,
+   "full_free": 0.5
+  },
+  {
+   "method": "RAMPA",
+   "step": 46,
+   "full_free": 1.0
+  },
+  {
+   "method": "RAMPA",
+   "step": 47,
+   "full_free": 1.0
+  }
+ ],
+ "stage_share": {
+  "PE": {
+   "1": 0.511,
+   "2": 0.153,
+   "3": 0.335
+  },
+  "NCAR": {
+   "1": 0.51,
+   "2": 0.146,
+   "3": 0.344
+  },
+  "RAMPA": {
+   "1": 0.477,
+   "2": 0.112,
+   "3": 0.363,
+   "4": 0.023,
+   "6": 0.025
+  }
+ }
+}
