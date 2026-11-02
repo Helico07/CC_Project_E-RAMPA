@@ -13,10 +13,13 @@ class FillResult:
     allocs: list = field(default_factory=list)
     failed_svc: int | None = None
 
-def run_fill(spec, mix, seed, method, pattern=0, margin=0.0, params=None, max_services=2000, snapshots=False):
+def run_fill(spec, mix, seed, method, pattern=0, margin=0.0, params=None, max_services=2000, snapshots=False,
+             lam=0.0, penalize_links=False):
     """Paper metric: keep deploying requests until the first one cannot be allocated."""
     params = params or ACOParams()
     cl = Cluster(spec)
+    cl.lam = 0.0 if method == "PE" else lam   # PE ignores energy penalty
+    cl.penalize_links = penalize_links
     rng = random.Random(seed * 101 + METHODS.index(method) * 7 + pattern)
     res = FillResult(method, 0)
     for step, i in enumerate(arrival_stream(mix, seed, max_services)):
