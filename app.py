@@ -226,7 +226,7 @@ where $\mathrm{TDP}_{\max} = 250\,\mathrm{W}$ (V100 PCIe). At $\lambda=0$, the c
         def_idx = lam_vals.index(1.0) if 1.0 in lam_vals else 0
         
         envs_list = sorted(list(set(f"{c} / {m}" for c, m in zip(df_runs["cluster"], df_runs["mix"]))))
-        env_options = ["All pooled"] + envs_list
+        env_options = ["Pooled over 16 environments"] + envs_list
         
         c_lam, c_env = st.columns([1, 2])
         sel_lam = c_lam.selectbox("Energy penalty parameter λ", lam_vals, index=def_idx, key="en_lam_sel")
@@ -240,7 +240,7 @@ where $\mathrm{TDP}_{\max} = 250\,\mathrm{W}$ (V100 PCIe). At $\lambda=0$, the c
         m_col1.metric("Allocated TDP at Equal Load (%Δ vs λ=0)", f"{exp_data['pct_tdp']:+.2f}%",
                       help="Change in cumulative allocated TDP at N_ref_A")
         m_col2.metric("Services Admitted (%Δ vs λ=0)", f"{exp_data['pct_cnt']:+.2f}%",
-                      help="Change in admission capacity before first rejection")
+                      delta_color="off", help="Change in admission capacity before first rejection")
         
         col_gpus, col_diff = st.columns(2)
         fig_gpus = energy_dash.plot_gpu_types_stacked(exp_data["type_0"], exp_data["type_lam"], sel_lam)
@@ -250,25 +250,30 @@ where $\mathrm{TDP}_{\max} = 250\,\mathrm{W}$ (V100 PCIe). At $\lambda=0$, the c
         
         # 2. Method comparison at equal load
         st.divider()
-        st.subheader("2. Method Comparison at Common Equal Load (N_ref_B)")
-        df_comp, n_ref_b_str = energy_dash.get_method_comparison_data(df_runs, df_steps, n_ref_b, sel_env)
+        scope_comp = st.selectbox("Scope for method comparison", env_options, index=0, key="en_comp_scope")
+        st.subheader(f"2. Method Comparison at Equal Load — {scope_comp}")
+        df_comp, n_ref_b_str = energy_dash.get_method_comparison_data(df_runs, df_steps, n_ref_b, scope_comp)
         st.dataframe(df_comp, hide_index=True, width="stretch")
         st.caption(f"Evaluated at common load point {n_ref_b_str}. "
-                   "**Important**: PipeEdge (PE) appears power-efficient only because it admits far fewer services and leaves most GPUs idle.")
+                   "PE places work on the fastest GPUs, which also draw least power, but it rejects requests much earlier and leaves more of the cluster unallocated. "
+                   "Its efficiency therefore depends on the idle-power assumption (see the idle-power view).")
 
         # 3. Idle-power view
         st.divider()
-        st.subheader("3. Idle Power Sensitivity (Unallocated GPU Leakage)")
+        scope_idle = st.selectbox("Scope for idle sensitivity", env_options, index=0, key="en_idle_scope")
+        f_val = st.slider("Unallocated GPU idle leakage fraction f", min_value=0.0, max_value=0.5, value=0.10, step=0.05,
+                          help="Fraction of unallocated GPU nominal TDP consumed as static power leakage (key reference values: 0 for no idle power, 0.1 for 10% leakage, 0.3 for 30% leakage).",
+                          key="en_idle_f_slider")
+        st.subheader(f"3. Idle Power Sensitivity at f = {f_val:.2f} — {scope_idle}")
         st.markdown(r"Total cluster power accounting for static leakage on idle GPUs: "
                     r"$P_{\mathrm{total}} = P_{\mathrm{alloc}} + f \cdot \sum_{\text{free}} \mathrm{TDP}$.")
         
-        f_c1, f_c2 = st.columns([1, 2])
-        f_radio = f_c1.radio("Standard idle fraction f", [0.0, 0.1, 0.3], index=1, horizontal=True, key="en_idle_f_radio")
-        f_val = f_c2.slider("Fine-grained idle leakage fraction f", 0.0, 0.5, float(f_radio), 0.05, key="en_idle_f_slider")
-        
-        df_idle = energy_dash.get_idle_efficiency_data(df_steps, cluster_totals, f_val, sel_env)
+        df_idle = energy_dash.get_idle_efficiency_data(df_steps, cluster_totals, f_val, scope_idle)
         st.dataframe(df_idle, hide_index=True, width="stretch")
-        st.caption("Measured at the moment of first admission rejection. At $f=0.3$, PE collapses into negative efficiency due to unallocated cluster idle leakage.")
+        
+        pe_pct = energy_dash.get_pe_pooled_idle_pct(df_steps, cluster_totals, f_val)
+        st.caption(f"At f = {f_val:.2f}, PipeEdge shows {pe_pct:+.2f}% services/kW vs RAMPA (λ=0) pooled across the 16 environments (state at first rejection).")
+        st.caption("Note: Services/kW is the mean of per-run ratios, so it can differ slightly from mean count divided by mean power.")
         
         curve_png = os.path.join(RES, "energy", "diag", "idle_curve_v2.png")
         if os.path.exists(curve_png):
@@ -299,7 +304,7 @@ where $\mathrm{TDP}_{\max} = 250\,\mathrm{W}$ (V100 PCIe). At $\lambda=0$, the c
     tdp0 = s0_last["alloc_tdp"]
     tdp_lam = slam_last["alloc_tdp"]
     
-    cnt_delta = f"{cnt_lam - cnt0:+d} vs λ=0" if live_lam > 0 else None
+    cnt_delta = f"{cnt_lam - cnt0:+d} vs λ=0" if (live_lam > 0 and cnt_lam != cnt0) else "0 vs λ=0"
     tdp_delta = f"{(tdp_lam - tdp0)/tdp0 * 100:+.1f}% vs λ=0" if tdp0 > 0 and live_lam > 0 else None
     
     c_live1.metric("RAMPA (λ=0) — Services Admitted", cnt0)
@@ -318,13 +323,14 @@ where $\mathrm{TDP}_{\max} = 250\,\mathrm{W}$ (V100 PCIe). At $\lambda=0$, the c
     # 5. Limitations
     st.divider()
     st.subheader("5. Limitations & Methodological Caveats")
-    st.info(r"""
+    link_reduction_val = energy_dash.get_link_penalty_reduction_val(RES)
+    st.info(f"""
 * **Nominal TDP Proxy**: TDP represents maximum continuous thermal design power, not measured dynamic power consumption. Dynamic idle power is modeled as a parameterized fraction $f$ of unallocated GPU TDP.
 * **Scaled-Down Topology**: Clusters are scaled down from the original paper (96–216 GPUs vs 640–1440) using synthetic DL model FLOP/memory block profiles.
 * **Shared Seed Correlation**: The 16 environments share seeds and arrival streams, and Base and High-bandwidth clusters yield near-identical allocation patterns; p-values across environments are indicative rather than independent.
-* **L4 Starvation at High $\lambda$**: In clusters with only L4 and V100 GPUs (e.g., High-performance) and latency-critical workloads (e.g., ViT with a 50 ms SLA that is physically impossible on V100), high $\lambda$ causes earlier non-latency tasks to consume all L4 racks. Latency-critical tasks are then rejected while V100 GPUs sit idle, reducing admission capacity.
-* **Link Penalty**: Network links are unpenalized by default (`penalize_links=False`) to avoid amplifying optical switch link costs over GPU costs.
-* **Search Effort**: Evaluated under a fixed ACO search configuration ($N_{\mathrm{ants}}=20, N_{\mathrm{iter}}=8, \text{extra\_stages}=6$).
+* **L4 Starvation at High λ**: Diagnostic data indicate that in clusters with only L4 and V100 GPUs (e.g., High-performance) and latency-critical workloads (e.g., ViT with a 50 ms SLA that is physically impossible on V100 in this simulator's synthetic profiles), high λ causes earlier non-latency tasks to consume all L4 racks. Latency-critical tasks are then rejected while V100 GPUs sit idle, reducing admission capacity.
+* **Link Penalty**: By default only the GPU cost term is penalised, as in the C++ experiment. Penalising link costs as well (penalize_links=True) gave an additional reduction in allocated power in our sweep ({link_reduction_val} at λ=1.0, read from results/energy/pooled_statistics.csv) with a small effect on services admitted.
+* **Search Effort**: Evaluated under a fixed ACO search configuration ($N_{{\\mathrm{{ants}}}}=20, N_{{\\mathrm{{iter}}}}=8, \\text{{extra\\_stages}}=6$).
 """)
 
 # ------------------------------------------------------------------------------------------ About

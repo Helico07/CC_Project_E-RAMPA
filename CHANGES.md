@@ -150,3 +150,23 @@ Branch `erampa-dashboard` branched from `erampa`.
 - `streamlit.testing.v1.AppTest`: Headless rendering passed with 0 exceptions on initial view and after interactive widget updates (`en_lam_sel=5.0`, `en_env_sel="Base / Low-delay heavy"`).
 - Missing files fallback: Tested in isolated temporary directory without `results/energy/`; verified friendly `st.info` displayed without crash.
 - `streamlit run app.py`: Ran headlessly for 30 seconds; 0 runtime errors or warnings.
+
+---
+
+## 7. Energy Tab UI & Data Refinements (`erampa-dashboard` branch)
+
+1. **Plain-Text Dataframe Labels**: Replaced all $\LaTeX$ formatting in table cells with plain-text labels: `"RAMPA (λ=0)"`, `"e-RAMPA (λ=0.5)"`, `"e-RAMPA (λ=1)"`, `"e-RAMPA (λ=2)"`, `"e-RAMPA (λ=5)"`, `"NCAR (pattern 0)"`, and `"PipeEdge (pattern 0)"`.
+2. **Unified Idle-Power Control**: Replaced dual radio/slider with a single slider $f \in [0, 0.5]$ (step 0.05, noting $0, 0.1, 0.3$ in help text) and displaying `"f = <val>"` in the table header.
+3. **Dedicated Scope Selectors**: Added scope selectors (`"Pooled over 16 environments"` or individual environment) for both the method-comparison and idle-sensitivity tables, reflected in table titles.
+4. **Dynamic PipeEdge Sensitivity Output**: Generated real-time pooled %Δ services/kW caption for PipeEdge at current slider $f$ (e.g. $+42.57\%$ at $f=0$, $+16.12\%$ at $f=0.1$, $-9.93\%$ at $f=0.3$).
+5. **Services/kW Footnote**: Added footnote explaining that services/kW is the mean of per-run ratios.
+6. **Renamed Method-Comparison Columns**: Updated to `"Services admitted (at first rejection)"`, `"Allocated TDP (W) at N_ref_B requests"`, `"TDP per GPU (W) at N_ref_B"`, and `"%Δ TDP vs RAMPA λ=0"`.
+7. **PipeEdge Explanation**: Replaced caption with precise description of PipeEdge's aggressive GPU packing behavior and dependency on idle leakage assumptions.
+8. **Layout & Palette Fixes**:
+   - Relocated chart legends outside the plot area (`bbox_to_anchor=(1.02, 1.0)`) preventing bar overlap.
+   - Introduced a distinct colorblind-friendly GPU type palette (`L4`: deep blue `#0072B2`, `V100`: reddish purple `#CC79A7`, `A30`: emerald green `#009E73`, `T4`: slate gray `#5C6B73`) distinct from the $\lambda$ palette (`#E4572E`, `#F3A712`).
+   - Made admission delta neutral when zero (`delta_color="off"`, omitting directional arrows).
+9. **Limitations Updates**:
+   - Link penalty bullet dynamically reads value from `results/energy/pooled_statistics.csv` (`-2.0% at λ=1.0`).
+   - L4 starvation bullet updated to start with `"Diagnostic data indicate"` and includes `"in this simulator's synthetic profiles"`.
+

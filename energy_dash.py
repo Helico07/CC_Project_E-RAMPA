@@ -10,12 +10,19 @@ import matplotlib.pyplot as plt
 from core import preset, GPU_TYPES, TDP_W, CLUSTER_KINDS
 import viz
 
-# Color palette aligned with viz.py
+# Color palette aligned with viz.py, with a distinct GPU type palette
 C_RAMPA = "#E4572E"
 C_NCAR = "#2E86AB"
 C_PE = "#8D99AE"
 C_LAM = "#F3A712"
-TYPE_COL = {"A": "#E4572E", "B": "#F3A712", "C": "#2E86AB", "D": "#6C757D"}
+
+# Distinct palette for GPU types (differing from the lambda palette #E4572E and #F3A712)
+TYPE_COL = {
+    "A": "#0072B2",  # L4: deep blue
+    "B": "#CC79A7",  # V100: reddish purple
+    "C": "#009E73",  # A30: bluish green
+    "D": "#5C6B73",  # T4: slate gray
+}
 
 def compute_reference_points(df_runs):
     """Compute N_ref_A (for RAMPA explorer) and N_ref_B (for method comparison)."""
@@ -64,19 +71,17 @@ def compute_idle_series(df_steps, cluster_totals):
 
 def get_explorer_data(df_runs, df_steps, n_ref_a, sel_env, sel_lam):
     """Extract metrics and plot series for the Results Explorer."""
-    # RAMPA runs with links=0
     r_sub = df_runs[(df_runs["method"] == "RAMPA") & (df_runs["links"] == 0)]
     s_sub = df_steps[(df_steps["method"] == "RAMPA") & (df_steps["links"] == 0)]
     
     envs = sorted(list(set(zip(r_sub["cluster"], r_sub["mix"]))))
     
-    if sel_env == "All pooled":
+    if sel_env in ["Pooled over 16 environments", "All pooled"]:
         pct_tdps = []
         pct_cnts = []
         type_0_totals = {"A": 0.0, "B": 0.0, "C": 0.0, "D": 0.0}
         type_lam_totals = {"A": 0.0, "B": 0.0, "C": 0.0, "D": 0.0}
         
-        # Min common steps across all envs for cumulative plot
         min_step = min(n_ref_a.values())
         diff_accum = {st: [] for st in range(1, min_step + 1)}
         
@@ -93,14 +98,12 @@ def get_explorer_data(df_runs, df_steps, n_ref_a, sel_env, sel_lam):
             clam = r_sub[(r_sub["cluster"] == cl) & (r_sub["mix"] == mx) & (r_sub["lam"] == sel_lam)]["count"].mean()
             pct_cnts.append((clam - c0) / c0 * 100.0)
             
-            # Types at n_ref
             s0_ref = s0[s0["step"] == n_ref]
             slam_ref = slam[slam["step"] == n_ref]
             for t in ["A", "B", "C", "D"]:
                 type_0_totals[t] += s0_ref[f"n_{t}"].mean()
                 type_lam_totals[t] += slam_ref[f"n_{t}"].mean()
                 
-            # Diff over steps up to min_step
             s0_m = s0.groupby("step")["alloc_tdp"].mean()
             slam_m = slam.groupby("step")["alloc_tdp"].mean()
             for st in range(1, min_step + 1):
@@ -152,19 +155,18 @@ def get_explorer_data(df_runs, df_steps, n_ref_a, sel_env, sel_lam):
         }
 
 def get_method_comparison_data(df_runs, df_steps, n_ref_b, sel_env):
-    """Return method comparison table at equal load point N_ref_B."""
+    """Return method comparison table at equal load point N_ref_B with plain-text labels and requested column names."""
     variants = [
-        (r"RAMPA ($\lambda=0$)", "RAMPA", -1, 0.0, 0),
-        (r"e-RAMPA ($\lambda=1$)", "RAMPA", -1, 1.0, 0),
-        (r"e-RAMPA ($\lambda=5$)", "RAMPA", -1, 5.0, 0),
-        (r"NCAR ($p=0$)", "NCAR", 0, 0.0, 0),
-        (r"PipeEdge ($p=0$)", "PE", 0, 0.0, 0),
+        ("RAMPA (λ=0)", "RAMPA", -1, 0.0, 0),
+        ("e-RAMPA (λ=1)", "RAMPA", -1, 1.0, 0),
+        ("e-RAMPA (λ=5)", "RAMPA", -1, 5.0, 0),
+        ("NCAR (pattern 0)", "NCAR", 0, 0.0, 0),
+        ("PipeEdge (pattern 0)", "PE", 0, 0.0, 0),
     ]
     
     envs = sorted(list(set(zip(df_runs["cluster"], df_runs["mix"]))))
     
-    if sel_env == "All pooled":
-        # Average metrics across environments
+    if sel_env in ["Pooled over 16 environments", "All pooled"]:
         rows = []
         base_tdp_map = {}
         for (cl, mx) in envs:
@@ -192,20 +194,19 @@ def get_method_comparison_data(df_runs, df_steps, n_ref_b, sel_env):
                 b_tdp = base_tdp_map[(cl, mx)]
                 pct_list.append((p - b_tdp) / b_tdp * 100.0)
                 
-            delta_str = "baseline" if label == r"RAMPA ($\lambda=0$)" else f"{np.mean(pct_list):+.2f}%"
+            delta_str = "baseline" if label == "RAMPA (λ=0)" else f"{np.mean(pct_list):+.2f}%"
             rows.append({
                 "Method": label,
-                "Services Admitted": round(float(np.mean(cnt_list)), 1),
-                "Allocated TDP (W)": round(float(np.mean(tdp_list)), 1),
-                "TDP per GPU (W)": round(float(np.mean(tpg_list)), 1),
-                "%Δ TDP vs RAMPA": delta_str
+                "Services admitted (at first rejection)": round(float(np.mean(cnt_list)), 1),
+                "Allocated TDP (W) at N_ref_B requests": round(float(np.mean(tdp_list)), 1),
+                "TDP per GPU (W) at N_ref_B": round(float(np.mean(tpg_list)), 1),
+                "%Δ TDP vs RAMPA λ=0": delta_str
             })
         return pd.DataFrame(rows), "pooled $N_{\\mathrm{ref},B}$ (11 to 39 requests)"
     else:
         cl, mx = sel_env.split(" / ")
         nb = n_ref_b[(cl, mx)]
         
-        # Get base tdp
         s0 = df_steps[(df_steps["method"] == "RAMPA") & (df_steps["lam"] == 0.0) & (df_steps["links"] == 0) & 
                       (df_steps["cluster"] == cl) & (df_steps["mix"] == mx) & (df_steps["step"] == nb)]
         b_tdp = s0["alloc_tdp"].mean()
@@ -220,18 +221,18 @@ def get_method_comparison_data(df_runs, df_steps, n_ref_b, sel_env):
             c = sub_r["count"].mean()
             p = sub_s["alloc_tdp"].mean()
             g = sub_s["gpus_in_use"].mean()
-            delta_str = "baseline" if label == r"RAMPA ($\lambda=0$)" else f"{(p - b_tdp) / b_tdp * 100.0:+.2f}%"
+            delta_str = "baseline" if label == "RAMPA (λ=0)" else f"{(p - b_tdp) / b_tdp * 100.0:+.2f}%"
             rows.append({
                 "Method": label,
-                "Services Admitted": round(float(c), 1),
-                "Allocated TDP (W)": round(float(p), 1),
-                "TDP per GPU (W)": round(float(p / g if g > 0 else np.nan), 1),
-                "%Δ TDP vs RAMPA": delta_str
+                "Services admitted (at first rejection)": round(float(c), 1),
+                "Allocated TDP (W) at N_ref_B requests": round(float(p), 1),
+                "TDP per GPU (W) at N_ref_B": round(float(p / g if g > 0 else np.nan), 1),
+                "%Δ TDP vs RAMPA λ=0": delta_str
             })
         return pd.DataFrame(rows), f"{nb} requests"
 
 def get_idle_efficiency_data(df_steps, cluster_totals, f_val, sel_env):
-    """Compute endpoint services/kW with idle leakage fraction f at first rejection."""
+    """Compute endpoint services/kW with idle leakage fraction f at first rejection using plain text labels."""
     last_steps = df_steps.loc[df_steps.groupby(["cluster", "mix", "seed", "method", "pattern", "lam", "links"])["step"].idxmax()].copy()
     
     idle_tdps = []
@@ -247,13 +248,13 @@ def get_idle_efficiency_data(df_steps, cluster_totals, f_val, sel_env):
     last_steps["idle_tdp"] = idle_tdps
     
     variants = [
-        (r"RAMPA ($\lambda=0$)", "RAMPA", -1, 0.0, 0),
-        (r"e-RAMPA ($\lambda=0.5$)", "RAMPA", -1, 0.5, 0),
-        (r"e-RAMPA ($\lambda=1$)", "RAMPA", -1, 1.0, 0),
-        (r"e-RAMPA ($\lambda=2$)", "RAMPA", -1, 2.0, 0),
-        (r"e-RAMPA ($\lambda=5$)", "RAMPA", -1, 5.0, 0),
-        (r"NCAR ($p=0$)", "NCAR", 0, 0.0, 0),
-        (r"PipeEdge ($p=0$)", "PE", 0, 0.0, 0),
+        ("RAMPA (λ=0)", "RAMPA", -1, 0.0, 0),
+        ("e-RAMPA (λ=0.5)", "RAMPA", -1, 0.5, 0),
+        ("e-RAMPA (λ=1)", "RAMPA", -1, 1.0, 0),
+        ("e-RAMPA (λ=2)", "RAMPA", -1, 2.0, 0),
+        ("e-RAMPA (λ=5)", "RAMPA", -1, 5.0, 0),
+        ("NCAR (pattern 0)", "NCAR", 0, 0.0, 0),
+        ("PipeEdge (pattern 0)", "PE", 0, 0.0, 0),
     ]
     
     v_dfs = []
@@ -266,9 +267,9 @@ def get_idle_efficiency_data(df_steps, cluster_totals, f_val, sel_env):
     df_v["total_power"] = df_v["alloc_tdp"] + f_val * df_v["idle_tdp"]
     df_v["spk"] = df_v["step"] / (df_v["total_power"] / 1000.0)
     
-    if sel_env == "All pooled":
+    if sel_env in ["Pooled over 16 environments", "All pooled"]:
         env_means = df_v.groupby(["cluster", "mix", "variant"])[["step", "total_power", "spk"]].mean().reset_index()
-        base = env_means[env_means["variant"] == r"RAMPA ($\lambda=0$)"].set_index(["cluster", "mix"])["spk"]
+        base = env_means[env_means["variant"] == "RAMPA (λ=0)"].set_index(["cluster", "mix"])["spk"]
         
         rows = []
         for label, _, _, _, _ in variants:
@@ -276,24 +277,24 @@ def get_idle_efficiency_data(df_steps, cluster_totals, f_val, sel_env):
             c = sub["step"].mean()
             p = sub["total_power"].mean()
             s = sub["spk"].mean()
-            if label == r"RAMPA ($\lambda=0$)":
+            if label == "RAMPA (λ=0)":
                 pct_str = "baseline"
             else:
                 pct = (sub["spk"] - base) / base * 100.0
                 pct_str = f"{pct.mean():+.2f}%"
             rows.append({
                 "Variant": label,
-                "Admitted Count": round(float(c), 1),
+                "Services admitted (at first rejection)": round(float(c), 1),
                 "Total Power (W)": round(float(p), 1),
                 "Services / kW": round(float(s), 2),
-                "%Δ Svc/kW vs RAMPA": pct_str
+                "%Δ Svc/kW vs RAMPA λ=0": pct_str
             })
         return pd.DataFrame(rows)
     else:
         cl, mx = sel_env.split(" / ")
         sub_env = df_v[(df_v["cluster"] == cl) & (df_v["mix"] == mx)]
         env_means = sub_env.groupby("variant")[["step", "total_power", "spk"]].mean().reset_index()
-        base_s = env_means[env_means["variant"] == r"RAMPA ($\lambda=0$)"]["spk"].iloc[0]
+        base_s = env_means[env_means["variant"] == "RAMPA (λ=0)"]["spk"].iloc[0]
         
         rows = []
         for label, _, _, _, _ in variants:
@@ -303,21 +304,55 @@ def get_idle_efficiency_data(df_steps, cluster_totals, f_val, sel_env):
             c = sub["step"].iloc[0]
             p = sub["total_power"].iloc[0]
             s = sub["spk"].iloc[0]
-            pct_str = "baseline" if label == r"RAMPA ($\lambda=0$)" else f"{(s - base_s) / base_s * 100.0:+.2f}%"
+            pct_str = "baseline" if label == "RAMPA (λ=0)" else f"{(s - base_s) / base_s * 100.0:+.2f}%"
             rows.append({
                 "Variant": label,
-                "Admitted Count": round(float(c), 1),
+                "Services admitted (at first rejection)": round(float(c), 1),
                 "Total Power (W)": round(float(p), 1),
                 "Services / kW": round(float(s), 2),
-                "%Δ Svc/kW vs RAMPA": pct_str
+                "%Δ Svc/kW vs RAMPA λ=0": pct_str
             })
         return pd.DataFrame(rows)
 
+def get_pe_pooled_idle_pct(df_steps, cluster_totals, f_val):
+    """Compute PipeEdge pooled % change in services/kW vs RAMPA (lam=0) at f_val across 16 environments."""
+    last_steps = df_steps.loc[df_steps.groupby(["cluster", "mix", "seed", "method", "pattern", "lam", "links"])["step"].idxmax()].copy()
+    
+    idle_tdps = []
+    for _, r in last_steps.iterrows():
+        tot = cluster_totals[r["cluster"]]
+        idle_tdp = (
+            (tot["A"] - r["n_A"]) * TDP_W["A"] +
+            (tot["B"] - r["n_B"]) * TDP_W["B"] +
+            (tot["C"] - r["n_C"]) * TDP_W["C"] +
+            (tot["D"] - r["n_D"]) * TDP_W["D"]
+        )
+        idle_tdps.append(idle_tdp)
+    last_steps["idle_tdp"] = idle_tdps
+    
+    tot_p = last_steps["alloc_tdp"] + f_val * last_steps["idle_tdp"]
+    last_steps["spk"] = last_steps["step"] / (tot_p / 1000.0)
+    
+    r0 = last_steps[(last_steps["method"] == "RAMPA") & (last_steps["lam"] == 0.0) & (last_steps["links"] == 0)].groupby(["cluster", "mix"])["spk"].mean()
+    pe = last_steps[(last_steps["method"] == "PE") & (last_steps["pattern"] == 0)].groupby(["cluster", "mix"])["spk"].mean()
+    pct = (pe - r0) / r0 * 100.0
+    return float(pct.mean())
+
+def get_link_penalty_reduction_val(res_dir):
+    """Read the penalize_links additional allocated power reduction from pooled_statistics.csv."""
+    pooled_path = os.path.join(res_dir, "energy", "pooled_statistics.csv")
+    if os.path.exists(pooled_path):
+        p_df = pd.read_csv(pooled_path)
+        sub = p_df[(p_df["metric"] == "penalize_links_alloc_tdp") & (p_df["lam"] == 1.0)]
+        if not sub.empty:
+            return f"{sub['mean_pct'].iloc[0]:+.1f}%"
+    return "-2.0%"
+
 def plot_gpu_types_stacked(type_0, type_lam, lam_val):
-    """Plot stacked bar chart comparing GPU types at equal load between lam=0 and chosen lam."""
-    fig, ax = plt.subplots(figsize=(4.8, 3.2))
+    """Plot stacked bar chart comparing GPU types at equal load between lam=0 and chosen lam with legend outside."""
+    fig, ax = plt.subplots(figsize=(5.6, 3.2))
     x = np.array([0, 1])
-    labels = [r"$\lambda=0$", rf"$\lambda={lam_val}$"]
+    labels = ["RAMPA (λ=0)", f"e-RAMPA (λ={lam_val})"]
     
     types = ["A", "B", "C", "D"]
     names = {"A": "L4", "B": "V100", "C": "A30", "D": "T4"}
@@ -326,39 +361,41 @@ def plot_gpu_types_stacked(type_0, type_lam, lam_val):
     for t in types:
         vals = np.array([type_0.get(t, 0.0), type_lam.get(t, 0.0)])
         ax.bar(x, vals, bottom=bottom, label=f"{names[t]} ({TDP_W[t]:.0f}W)",
-               color=TYPE_COL[t], width=0.52, edgecolor="white", linewidth=0.8)
+               color=TYPE_COL[t], width=0.48, edgecolor="white", linewidth=0.8)
         bottom += vals
         
     ax.set_xticks(x)
-    ax.set_xticklabels(labels, fontsize=10, fontweight="medium")
+    ax.set_xticklabels(labels, fontsize=9.5, fontweight="medium")
     ax.set_ylabel("GPUs in Use at Equal Load", fontsize=9.5)
     ax.set_title("GPU Type Breakdown", fontsize=10.5, fontweight="bold")
     viz._style(ax)
-    ax.legend(frameon=False, loc="upper right", fontsize=8.5)
+    # Legend outside plot area
+    ax.legend(frameon=False, bbox_to_anchor=(1.02, 1.0), loc="upper left", fontsize=8.5)
     fig.tight_layout()
     return fig
 
 def plot_cum_tdp_diff(diff_series, lam_val):
-    """Plot cumulative allocated TDP difference vs lam=0 over request steps."""
-    fig, ax = plt.subplots(figsize=(5.6, 3.2))
+    """Plot cumulative allocated TDP difference vs lam=0 over request steps with legend outside."""
+    fig, ax = plt.subplots(figsize=(6.2, 3.2))
     steps = [d["step"] for d in diff_series]
     diffs = [d["diff_w"] for d in diff_series]
     
     ax.axhline(0, color="gray", linestyle="--", linewidth=0.9, alpha=0.7)
     ax.plot(steps, diffs, color=C_RAMPA, linewidth=2.0, marker="o", markersize=3.5,
-            label=rf"$\lambda={lam_val}$ minus $\lambda=0$")
+            label=f"e-RAMPA (λ={lam_val})\nminus RAMPA (λ=0)")
     
     ax.set_xlabel("Admitted Service Index (Requests)", fontsize=9.5)
     ax.set_ylabel("TDP Difference (W)", fontsize=9.5)
-    ax.set_title(r"Allocated TDP Difference vs $\lambda=0$", fontsize=10.5, fontweight="bold")
+    ax.set_title("Allocated TDP Difference vs λ=0", fontsize=10.5, fontweight="bold")
     viz._style(ax)
-    ax.legend(frameon=False, loc="best", fontsize=8.5)
+    # Legend outside plot area
+    ax.legend(frameon=False, bbox_to_anchor=(1.02, 1.0), loc="upper left", fontsize=8.5)
     fig.tight_layout()
     return fig
 
 def plot_live_comparison(series_0, series_lam, lam_val):
-    """Line chart of allocated TDP vs requests for live simulation."""
-    fig, ax = plt.subplots(figsize=(5.8, 3.2))
+    """Line chart of allocated TDP vs requests for live simulation with legend outside."""
+    fig, ax = plt.subplots(figsize=(6.4, 3.2))
     
     steps_0 = [d["step"] for d in series_0]
     tdp_0 = [d["alloc_tdp"] for d in series_0]
@@ -366,20 +403,21 @@ def plot_live_comparison(series_0, series_lam, lam_val):
     steps_lam = [d["step"] for d in series_lam]
     tdp_lam = [d["alloc_tdp"] for d in series_lam]
     
-    ax.plot(steps_0, tdp_0, color=C_NCAR, linewidth=2.0, linestyle="--", label=r"RAMPA ($\lambda=0$)")
-    ax.plot(steps_lam, tdp_lam, color=C_RAMPA, linewidth=2.2, label=rf"e-RAMPA ($\lambda={lam_val}$)")
+    ax.plot(steps_0, tdp_0, color=C_NCAR, linewidth=2.0, linestyle="--", label="RAMPA (λ=0)")
+    ax.plot(steps_lam, tdp_lam, color=C_RAMPA, linewidth=2.2, label=f"e-RAMPA (λ={lam_val})")
     
     ax.set_xlabel("Admitted Services", fontsize=9.5)
     ax.set_ylabel("Allocated TDP (W)", fontsize=9.5)
     ax.set_title("Allocated TDP Growth Over Requests", fontsize=10.5, fontweight="bold")
     viz._style(ax)
-    ax.legend(frameon=False, loc="upper left", fontsize=8.5)
+    # Legend outside plot area
+    ax.legend(frameon=False, bbox_to_anchor=(1.02, 1.0), loc="upper left", fontsize=8.5)
     fig.tight_layout()
     return fig
 
 def plot_live_gpu_bar(counts_0, counts_lam, lam_val):
-    """Bar chart comparing final GPU types for live simulation."""
-    fig, ax = plt.subplots(figsize=(4.6, 3.2))
+    """Bar chart comparing final GPU types for live simulation with legend outside."""
+    fig, ax = plt.subplots(figsize=(5.4, 3.2))
     types = ["A", "B", "C", "D"]
     names = ["L4", "V100", "A30", "T4"]
     x = np.arange(len(types))
@@ -388,14 +426,15 @@ def plot_live_gpu_bar(counts_0, counts_lam, lam_val):
     vals_0 = [counts_0.get(f"n_{t}", counts_0.get(t, 0)) for t in types]
     vals_lam = [counts_lam.get(f"n_{t}", counts_lam.get(t, 0)) for t in types]
     
-    ax.bar(x - width/2, vals_0, width, label=r"$\lambda=0$", color=C_NCAR, alpha=0.85)
-    ax.bar(x + width/2, vals_lam, width, label=rf"$\lambda={lam_val}$", color=C_RAMPA, alpha=0.9)
+    ax.bar(x - width/2, vals_0, width, label="RAMPA (λ=0)", color=C_NCAR, alpha=0.85)
+    ax.bar(x + width/2, vals_lam, width, label=f"e-RAMPA (λ={lam_val})", color=C_RAMPA, alpha=0.9)
     
     ax.set_xticks(x)
     ax.set_xticklabels(names, fontsize=9.5)
     ax.set_ylabel("Final GPUs in Use", fontsize=9.5)
     ax.set_title("Final GPU Allocation by Type", fontsize=10.5, fontweight="bold")
     viz._style(ax)
-    ax.legend(frameon=False, loc="upper right", fontsize=8.5)
+    # Legend outside plot area
+    ax.legend(frameon=False, bbox_to_anchor=(1.02, 1.0), loc="upper left", fontsize=8.5)
     fig.tight_layout()
     return fig
